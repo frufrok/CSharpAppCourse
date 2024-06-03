@@ -8,11 +8,74 @@ namespace Task2
 {
     public class Bits : IBitModifiable
     {
+        public long Value { get; private set; }
+
+        public int Size { get; private set; }
+
         public Bits(byte value)
         {
             Value = value;
+            Size = sizeof(byte);
         }
-        public byte Value { get; private set; }
+
+        public Bits(int value)
+        {
+            Value = value;
+            Size = sizeof(int);
+        }
+
+        public Bits(long value)
+        {
+            Value = value;
+            Size = sizeof(long);
+        }
+
+        public bool TryGetInt(out int value)
+        {
+            if (Size <= sizeof(int))
+            {
+                value = (int)this;
+                return true;
+            }
+            else
+            {
+                value = default;
+                return false;
+            }
+        }
+
+        public bool TryGetByte(out byte value) 
+        {
+            if (Size <= sizeof(byte))
+            {
+                value = (byte)this;
+                return true;
+            }
+            else
+            {
+                value = default;
+                return false;
+            }
+        }
+
+        public static explicit operator byte(Bits bits) => (byte)bits.Value;
+
+        public static explicit operator int(Bits bits) => (int)bits.Value;
+
+        public static implicit operator long(Bits bits) => bits.Value;
+
+        public static implicit operator Bits(byte value) => new(value);
+
+        public static implicit operator Bits(int value) => new(value);
+
+        public static implicit operator Bits(long value) => new(value);
+
+        public bool this[int index]
+        {
+            get => GetBitByIndex(index);
+            set => SetBitByIndex(index, value);
+        }
+
         public bool GetBitByIndex(int index)
         {
             return (Value & (1 << index)) != 0;
@@ -54,12 +117,9 @@ namespace Task2
                 Value |= (byte)(1 << index);
             }
             else
-            {
+            {   
                 Value &= (byte)~(1 << index);
             }
         }
-        public bool this[int index] => GetBitByIndex(index);
-        public static implicit operator byte(Bits bits) => bits.Value;
-        public static explicit operator Bits(byte value) => new(value);
     }
 }
