@@ -1,60 +1,96 @@
 using System.Reflection;
 using System.Runtime.Remoting;
+using System.Text;
 
 
 /* 
 Дан класс(ниже), создать методы создающий этот класс, вызывая один 
 из его конструкторов (по одному конструктору на метод).
-Задача не очень сложна и служит больше для разогрева перед следующей задачей.
-*/
-class TestClass
-{
-    public int I { get; set; }
-    public string? S { get; set; }
-    public decimal D { get; set; }
-    public char[]? C { get; set; }
 
-    public TestClass()
-    { }
-    public TestClass(int i)
+Напишите 2 метода использующие рефлексию
+1 - сохраняет информацию о классе в строку
+2- позволяет восстановить класс из строки с информацией о методе
+В качестве примере класса используйте класс TestClass.
+Шаблоны методов для реализации:
+static object StringToObject(string s) { }
+static string ObjectToString(object o) { }
+Подсказка:
+Строка должна содержать название класса, полей и значений
+Ограничьтесь диапазоном значений представленном в классе
+Если класс находится в тоже сборке (наш вариант) то можно не указывать имя сборки в паремтрах активатора.
+Activator.CreateInstance(null, “TestClass”) - сработает;
+Для простоты представьте что есть только свойства. Не анализируйте поля класса.
+Пример того как мог быть выглядеть сохраненный в строку объект: “TestClass, test2, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null:TestClass|I:1|S:STR|D:2.0|”
+Ключ-значения разделяются двоеточием а сами пары - вертикальной чертой.
+*/
+
+
+namespace Task7
+{
+    class TestClass
     {
-        this.I = i;
-    }
-    public TestClass(int i, string s, decimal d, char[] c) : this(i)
-    {
-        this.S = s;
-        this.D = d;
-        this.C = c;
-    }
-    public override string ToString()
-    {
-        return $"I={I}, S={S}, D={D}, C={C}";
-    }
-    private static TestClass? GetUnwrapped(ObjectHandle? wrapped)
-    {
-        if (wrapped != null)
+        public int I { get; set; }
+        public string? S { get; set; }
+        public decimal D { get; set; }
+        public char[]? C { get; set; }
+
+        public TestClass()
+        { }
+        public TestClass(int i)
         {
-            object? result = wrapped.Unwrap();
-            return result == null ? null : (TestClass)result;
+            this.I = i;
         }
-        else return null;
-    }
-    public static TestClass? GetUsingReflection()
-    {
-        string assemblyName = System.Reflection.Assembly.GetEntryAssembly()?.GetName().Name ?? "";
-        return GetUnwrapped(Activator.CreateInstance(assemblyName, nameof(TestClass)));
-    }
-    private static TestClass? GetUnboxed(object? boxed) 
-    {
-        if (boxed != null) return (TestClass)boxed;
-        else return null;
-    }
-    public static TestClass? GetUsingReflection(int i)
-    {
-        return GetUnboxed(Activator.CreateInstance(typeof(TestClass), [i]));
-    }
-    public static TestClass? GetUsingReflection(int i, string s, decimal d, char[] c)
-    {
-        return GetUnboxed(Activator.CreateInstance(typeof(TestClass), [i, s, d, c]));
+        public TestClass(int i, string s, decimal d, char[] c) : this(i)
+        {
+            this.S = s;
+            this.D = d;
+            this.C = c;
+        }
+        public override string ToString()
+        {
+            return $"I={I}, S={S}, D={D}, C={C}";
+        }
+        public static string ObjectToString(object o)
+        {
+            Type t = o.GetType();
+            StringBuilder result = new StringBuilder();
+            result.AppendKeyValue(t.AssemblyQualifiedName, t.Name);
+            var prop = t.GetProperties();
+            foreach (var p in prop)
+            {
+                var value = p.GetValue(o);
+                if (p.PropertyType == typeof(char[]))
+                    result.AppendKeyValue(p.Name, new string(value as char[]));
+                else
+                    result.AppendKeyValue(p.Name, value == null? null : value.ToString());
+            }
+            return result.ToString();
+        }
+    
+        public static object? StringToObject(string s)
+        {
+            string[] arr = s.Split('|');
+            string[] arr1 = arr[0].Split(':');
+            var result = Activator.CreateInstance(null, arr1[0].Split(',')[0]).Unwrap();
+
+            if (arr1.Length > 1 && result != null)
+            {
+                var t = result.GetType();
+                for (int i = 1; i < arr.Length; i++)
+                {
+                    string[] keyValue = arr[i].Split(':');
+                    var p = t.GetProperty(keyValue[0]);
+                    if (p == null) continue;
+                    else 
+                    {
+                        if (p.PropertyType == typeof(int)) p.SetValue(result, int.Parse(keyValue[1]));
+                        if (p.PropertyType == typeof(string)) p.SetValue(result, keyValue[1]);
+                        if (p.PropertyType == typeof(decimal)) p.SetValue(result, decimal.Parse(keyValue[1]));
+                        if (p.PropertyType == typeof(char[])) p.SetValue(result, keyValue[1].ToCharArray());
+                    }
+                }
+            }
+            return result;
+        }
     }
 }
