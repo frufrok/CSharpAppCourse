@@ -29,7 +29,9 @@ namespace Task7
 {
     class TestClass
     {
+        [AliasName("my own int alias")]
         public int I { get; set; }
+        [AliasName("my own string alias")]
         public string? S { get; set; }
         public decimal D { get; set; }
         public char[]? C { get; set; }
@@ -58,13 +60,23 @@ namespace Task7
             var prop = t.GetProperties();
             foreach (var p in prop)
             {
+                var myAttributes = p.CustomAttributes.Where(x => x.AttributeType.Name.Equals(nameof(AliasNameAttribute)));
+                string? alias = GetAliasName(p); 
+                string name = alias ?? p.Name;
                 var value = p.GetValue(o);
                 if (p.PropertyType == typeof(char[]))
-                    result.AppendKeyValue(p.Name, new string(value as char[]));
+                    result.AppendKeyValue(name, new string(value as char[]));
                 else
-                    result.AppendKeyValue(p.Name, value == null? null : value.ToString());
+                    result.AppendKeyValue(name, value == null? null : value.ToString());
             }
             return result.ToString();
+        }
+
+        private static string? GetAliasName(PropertyInfo property)
+        {
+            var attributes = property.CustomAttributes.Where(x => x.AttributeType.Name == nameof(AliasNameAttribute));
+            if (attributes.Count() > 0) return attributes.First().ConstructorArguments[0].ToString();
+            else return null;
         }
     
         public static object? StringToObject(string s)
@@ -80,6 +92,13 @@ namespace Task7
                 {
                     string[] keyValue = arr[i].Split(':');
                     var p = t.GetProperty(keyValue[0]);
+                    if (p == null)
+                    {
+                        foreach (var item in t.GetProperties())
+                        {
+                            if (keyValue[0].Equals(GetAliasName(item))) p = item;
+                        }
+                    }
                     if (p == null) continue;
                     else 
                     {
